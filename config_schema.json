@@ -1,0 +1,40 @@
+{
+  "type": "object",
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": true,
+      "title": "Enabled"
+    },
+    "countdown_seconds": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 15,
+      "title": "Countdown seconds",
+      "description": "How long to show the race starting countdown."
+    },
+    "race_seconds": {
+      "type": "number",
+      "minimum": 5,
+      "maximum": 120,
+      "default": 30,
+      "title": "Race seconds",
+      "description": "Approximate duration of the horse race."
+    },
+    "results_seconds": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 15,
+      "title": "Results seconds",
+      "description": "How long to display the finishing order."
+    },
+    "show_lane_numbers": {
+      "type": "boolean",
+      "default": true,
+      "title": "Show horse numbers",
+      "description": "Show horse numbers 1 to 4 at the left side of the track."
+    }
+  }
+}
