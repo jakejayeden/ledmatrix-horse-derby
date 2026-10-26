@@ -1,0 +1,1 @@
+# No additional dependencies. Pillow is provided by LEDMatrix.
