@@ -11,17 +11,13 @@ from src.plugin_system.base_plugin import BasePlugin
 
 
 class HorseDerbyPlugin(BasePlugin):
-    """Animated four-horse derby for LEDMatrix displays.
-
-    One cycle is countdown -> race -> results. When LEDMatrix starts a new
-    rotation the derby starts over with a newly randomized finishing order.
-    """
+    """Animated four-horse derby for LEDMatrix displays."""
 
     HORSE_COLORS = {
-        1: (255, 80, 80),
-        2: (80, 180, 255),
-        3: (255, 210, 70),
-        4: (130, 255, 120),
+        1: (255, 80, 80),       # red
+        2: (80, 180, 255),      # blue
+        3: (255, 210, 70),      # yellow
+        4: (130, 255, 120),     # green
     }
 
     def __init__(self, plugin_id, config, display_manager, cache_manager, plugin_manager):
@@ -33,6 +29,7 @@ class HorseDerbyPlugin(BasePlugin):
         self._finish_order: List[int] = []
         self._finish_times: Dict[int, float] = {}
         self._race_noise: Dict[int, float] = {}
+        self._last_progress: Dict[int, float] = {}
         self._load_config(config)
         self._start_countdown()
 
@@ -58,11 +55,9 @@ class HorseDerbyPlugin(BasePlugin):
         self._start_countdown()
 
     def get_display_duration(self):
-        """Keep the plugin on-screen for one complete derby."""
         return self.countdown_seconds + self.race_seconds + self.results_seconds
 
     def update(self):
-        """No network or background data is required."""
         pass
 
     def _start_countdown(self):
@@ -71,14 +66,11 @@ class HorseDerbyPlugin(BasePlugin):
         self._finish_order = []
         self._finish_times = {}
         self._race_noise = {}
+        self._last_progress = {}
 
     def _start_race(self):
         self._phase = "race"
         self._phase_started = time.monotonic()
-
-        # Decide the complete result before the first racing frame is drawn.
-        # The renderer may make horses surge and trade the lead, but each horse
-        # has a fixed crossing time so this order cannot be violated.
         self._finish_order = [1, 2, 3, 4]
         self._rng.shuffle(self._finish_order)
 
@@ -91,6 +83,7 @@ class HorseDerbyPlugin(BasePlugin):
         self._race_noise = {
             horse: self._rng.uniform(0.0, math.tau) for horse in range(1, 5)
         }
+        self._last_progress = {horse: 0.0 for horse in range(1, 5)}
 
     def _start_results(self):
         self._phase = "results"
@@ -125,8 +118,6 @@ class HorseDerbyPlugin(BasePlugin):
         else:
             self._render_results(draw, width, height)
 
-        # LEDMatrix's documented complex-layout path: replace the completed
-        # off-screen image, then push it to the matrix in one operation.
         self.display_manager.image = image
         self.display_manager.update_display()
 
@@ -148,18 +139,31 @@ class HorseDerbyPlugin(BasePlugin):
         title_y = max(1, height // 8)
         number_y = max(title_y + 10, height // 2)
         self._center_text(draw, width, title_y, "RACE STARTS IN", (255, 220, 0))
-        self._center_text(draw, width, number_y, str(remaining), (255, 255, 255))
+
+        number = str(remaining)
+        number_w, _ = self._text_size(draw, number)
+        number_x = (width - number_w) // 2
+        draw.text((number_x, number_y), number, font=self._font(), fill=(255, 255, 255))
+
+        # Four starters flank the countdown number: red + blue on the left,
+        # green + yellow on the right. Their legs gallop in place while waiting.
+        frame = int(elapsed * 5) % 2
+        cy_top = min(height - 5, number_y + 2)
+        cy_bottom = min(height - 5, number_y + 9)
+        left_x = max(2, number_x - 25)
+        right_x = min(width - 10, number_x + number_w + 10)
+        self._draw_horse(draw, left_x, cy_top, self.HORSE_COLORS[1], frame)
+        self._draw_horse(draw, left_x + 10, cy_bottom, self.HORSE_COLORS[2], 1 - frame)
+        self._draw_horse(draw, right_x, cy_top, self.HORSE_COLORS[4], 1 - frame)
+        self._draw_horse(draw, right_x + 10, cy_bottom, self.HORSE_COLORS[3], frame)
 
     def _render_race(self, draw, width, height, now):
         elapsed = max(0.0, now - self._phase_started)
         left = 10 if self.show_lane_numbers else 2
         finish_x = max(left + 10, width - 5)
-        # The horse's head is seven pixels ahead of its x origin. At progress
-        # 1.0 its nose therefore lands exactly on the finish line.
         travel = max(1, finish_x - left - 7)
         lane_h = max(6, height // 4)
 
-        # Checker-like finish line readable on a tiny RGB matrix.
         for y in range(height):
             if y % 2 == 0:
                 draw.point((finish_x, y), fill=(255, 255, 255))
@@ -177,16 +181,15 @@ class HorseDerbyPlugin(BasePlugin):
             finish_t = self._finish_times.get(horse, self.race_seconds)
             base = min(1.0, elapsed / finish_t)
 
-            # Add changing pace and apparent lead swaps. This variation fades
-            # toward the finish, preserving the preselected crossing order.
+            # Surges still create changing pace and lead swaps, but progress is
+            # clamped against the horse's previous frame so it can never move
+            # backwards on the track.
             fade = max(0.0, 1.0 - base) ** 1.7
-            wobble = (
-                math.sin(elapsed * 1.35 + self._race_noise.get(horse, 0.0))
-                * 0.055
-                * fade
-            )
+            wobble = math.sin(elapsed * 1.35 + self._race_noise.get(horse, 0.0)) * 0.055 * fade
             surge = math.sin(elapsed * 0.47 + horse * 1.8) * 0.025 * fade
-            progress = max(0.0, min(1.0, base + wobble + surge))
+            candidate = max(0.0, min(1.0, base + wobble + surge))
+            progress = max(self._last_progress.get(horse, 0.0), candidate)
+            self._last_progress[horse] = progress
             x = left + int(progress * travel)
 
             frame = int(elapsed * 7 + horse) % 2
@@ -194,11 +197,10 @@ class HorseDerbyPlugin(BasePlugin):
 
     @staticmethod
     def _draw_horse(draw, x, cy, color, frame):
-        """Draw a tiny 9x9-ish pixel horse facing right."""
-        draw.rectangle((x + 1, cy - 2, x + 5, cy + 1), fill=color)  # body
-        draw.point((x + 5, cy - 3), fill=color)                      # neck
-        draw.rectangle((x + 6, cy - 4, x + 7, cy - 2), fill=color) # head
-        draw.point((x, cy - 2), fill=color)                          # tail
+        draw.rectangle((x + 1, cy - 2, x + 5, cy + 1), fill=color)
+        draw.point((x + 5, cy - 3), fill=color)
+        draw.rectangle((x + 6, cy - 4, x + 7, cy - 2), fill=color)
+        draw.point((x, cy - 2), fill=color)
         draw.point((x - 1, cy - 3), fill=color)
 
         if frame == 0:
@@ -212,9 +214,6 @@ class HorseDerbyPlugin(BasePlugin):
         self._center_text(draw, width, 1, "RESULTS", (255, 220, 0))
         order = self._finish_order or [1, 2, 3, 4]
         labels = ["1ST", "2ND", "3RD", "4TH"]
-
-        # Two rows x two columns is much clearer than squeezing five text rows
-        # into a 32-pixel-tall display.
         items = [f"{labels[i]} H{order[i]}" for i in range(4)]
         y_top = max(10, height // 3)
         y_bottom = min(height - 8, y_top + 10)
