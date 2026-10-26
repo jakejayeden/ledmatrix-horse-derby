@@ -164,6 +164,20 @@ class HorseDerbyPlugin(BasePlugin):
         travel = max(1, finish_x - left - 7)
         lane_h = max(6, height // 4)
 
+        # One-pixel dashed track under each horse. The track begins immediately
+        # after the lane-number area and stops just before the checker line.
+        # It is drawn first so the horse remains crisp when its feet overlap it.
+        track_start = left
+        track_end = finish_x - 1
+        for horse in range(1, 5):
+            y0 = (horse - 1) * lane_h
+            cy = min(height - 5, y0 + lane_h // 2)
+            track_y = min(height - 1, cy + 4)
+            for x in range(track_start, track_end + 1, 4):
+                dash_end = min(x + 1, track_end)
+                draw.line((x, track_y, dash_end, track_y), fill=(90, 90, 90))
+
+        # Checker finish line is rendered over the track ends.
         for y in range(height):
             if y % 2 == 0:
                 draw.point((finish_x, y), fill=(255, 255, 255))
