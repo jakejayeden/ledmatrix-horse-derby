@@ -1,0 +1,41 @@
+{
+  "id": "horse-derby",
+  "name": "Horse Derby",
+  "version": "1.0.0",
+  "author": "jakejayeden",
+  "description": "Animated four-horse derby with countdown, randomized race results, and finishing-order screen.",
+  "entry_point": "manager.py",
+  "class_name": "HorseDerbyPlugin",
+  "category": "games",
+  "tags": [
+    "game",
+    "horse",
+    "race",
+    "animation",
+    "derby"
+  ],
+  "display_modes": [
+    "horse-derby"
+  ],
+  "compatible_versions": [
+    ">=2.0.0"
+  ],
+  "display": {
+    "design_size": {
+      "width": 128,
+      "height": 32
+    }
+  },
+  "config_schema": "config_schema.json",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "released": "2026-10-26",
+      "ledmatrix_min_version": "2.0.0",
+      "notes": "Initial release: 15 second countdown, approximately 30 second four-horse race with randomized guaranteed finishing order, and 15 second results screen."
+    }
+  ],
+  "last_updated": "2026-10-26",
+  "verified": false,
+  "screenshot": ""
+}
