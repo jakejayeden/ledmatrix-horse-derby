@@ -145,17 +145,19 @@ class HorseDerbyPlugin(BasePlugin):
         number_x = (width - number_w) // 2
         draw.text((number_x, number_y), number, font=self._font(), fill=(255, 255, 255))
 
-        # Four starters flank the countdown number: red + blue on the left,
-        # green + yellow on the right. Their legs gallop in place while waiting.
+        # All four starters share one baseline with the countdown number.
+        # Red + blue sit well-spaced on the left; green + yellow mirror them
+        # on the right. Their legs gallop in place while waiting.
         frame = int(elapsed * 5) % 2
-        cy_top = min(height - 5, number_y + 2)
-        cy_bottom = min(height - 5, number_y + 9)
-        left_x = max(2, number_x - 25)
-        right_x = min(width - 10, number_x + number_w + 10)
-        self._draw_horse(draw, left_x, cy_top, self.HORSE_COLORS[1], frame)
-        self._draw_horse(draw, left_x + 10, cy_bottom, self.HORSE_COLORS[2], 1 - frame)
-        self._draw_horse(draw, right_x, cy_top, self.HORSE_COLORS[4], 1 - frame)
-        self._draw_horse(draw, right_x + 10, cy_bottom, self.HORSE_COLORS[3], frame)
+        horse_cy = min(height - 5, number_y + 4)
+        left_near_x = max(14, number_x - 22)
+        left_far_x = max(2, left_near_x - 18)
+        right_near_x = min(width - 10, number_x + number_w + 14)
+        right_far_x = min(width - 10, right_near_x + 18)
+        self._draw_horse(draw, left_far_x, horse_cy, self.HORSE_COLORS[1], frame)
+        self._draw_horse(draw, left_near_x, horse_cy, self.HORSE_COLORS[2], 1 - frame)
+        self._draw_horse(draw, right_near_x, horse_cy, self.HORSE_COLORS[4], 1 - frame)
+        self._draw_horse(draw, right_far_x, horse_cy, self.HORSE_COLORS[3], frame)
 
     def _render_race(self, draw, width, height, now):
         elapsed = max(0.0, now - self._phase_started)
